@@ -1,0 +1,1 @@
+# geotogether-domoticz
