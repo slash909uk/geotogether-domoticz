@@ -1,12 +1,14 @@
 <?php
 // S Ashby, 03/08/2021, created
 // script to poll Geotogether smartmeter API and push data into domoticz via MQTT broker
+// v1.1 - support export readings as second domoticz IDX - NB: Geo API returns export as a negative value. Leave as a negative so it is easy to add the values together for a total over time, or chart
 
 echo "Geotogether-domo MQTT bridge started\n";
 
 require "../phpMQTT-master/phpMQTT.php";
 
-$domo_idx_elec = 2599; // domoticz IDX for the electricity meter device to update
+$domo_idx_import = 2599; // domoticz IDX for the electricity import meter device to update
+$domo_idx_export = 2725; // domoticz IDX for the electricity export meter device to update
 
 $server = "localhost";     // change if necessary
 $port = 1883;                     // change if necessary
@@ -19,8 +21,8 @@ define(LOGIN_URL,'usersservice/v2/login');
 define(DEVICEDETAILS_URL,'api/userapi/v2/user/detail-systems?systemDetails=true');
 define(LIVEDATA_URL,'api/userapi/system/smets2-live-data/');
 define(PERIODICDATA_URL,'api/userapi/system/smets2-periodic-data/');
-define(USERNAME,'xxx');
-define(PASSWORD,'xxx');
+define(USERNAME,'xxxxx');
+define(PASSWORD,'xxxxx');
 // polling interval (sec)
 $polling_sec = 20;
 
@@ -215,7 +217,9 @@ function procmsg($topic, $msg, $retain){
 	global $telemetry_sec;
 	global $deviceId;
 	global $systemName;
-	global $domo_idx_elec;
+//	global $domo_idx_elec;
+	global $domo_idx_import;
+	global $domo_idx_export;
 	
 	$now = time();
 	// skip retain flag msgs (LWT usually)
@@ -253,6 +257,8 @@ function procmsg($topic, $msg, $retain){
 			$data->cmd = "config";
 			$data->telemetry_sec = $telemetry_sec;
 			$data->geourl = BASE_URL;
+			$data->domo_idx_import = $domo_idx_import;
+			$data->domo_idx_export = $domo_idx_export;
 			$msg = JSON_encode($data);
 			$mqtt->publish('geotogether-domo/status',$msg,0);
 			report('reply:'.$msg,LOG_DEBUG);
@@ -275,9 +281,17 @@ function procmsg($topic, $msg, $retain){
 						// extract watts data and abort loop
 						$power = $livedata->power[$i]->watts;
 						$data = new stdClass();
-						$data->idx = $domo_idx_elec;
+						// choose import/export idx					
+						$data->idx = $power < 0? $domo_idx_export : $domo_idx_import;
 						$data->nvalue = 0;
 						$data->svalue = $power.';0';
+						$msg = JSON_encode($data);
+						$mqtt->publish('domoticz/in',$msg,0);
+						report('send to domo:'.$msg,LOG_DEBUG);
+						// send zero to other idx
+						$data->idx = $power < 0? $domo_idx_import : $domo_idx_export;
+						$data->nvalue = 0;
+						$data->svalue = '0;0';
 						$msg = JSON_encode($data);
 						$mqtt->publish('domoticz/in',$msg,0);
 						report('send to domo:'.$msg,LOG_DEBUG);
