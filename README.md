@@ -3,4 +3,6 @@ A simple PHP script to poll smart meter live data from the Geotogether (reverse 
 
 Presently I am using these scripts myself with a Geo Trio II smartmeter IHD + WiFi interface, and Ecotricity's utility supply.
 
+V1.1 - support negative power response indicating export of energy to the grid. Split into two Domoticz devices accordingly.
+
 This work is based on that done by owainlloyd here: https://github.com/owainlloyd/Geohome_Integration - thanks!
